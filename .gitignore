@@ -1,0 +1,14 @@
+# Java / Maven / IntelliJ
+backend/target/
+*.class
+.idea/
+*.iml
+
+# Node / Vite / VSCode
+frontend/node_modules/
+frontend/dist/
+.vscode/
+
+# env files
+.env
+**/.env
