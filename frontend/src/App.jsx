@@ -1,29 +1,40 @@
 import { useState } from 'react'
 import { searchArticles } from './api/articlesApi'
 import ArticleCard from './components/ArticleCard'
+import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import './App.css'
 
+const PAGE_SIZE = 10
+
 function App() {
   const [articles, setArticles] = useState([])
+  const [page, setPage] = useState(1)
   const [status, setStatus] = useState('idle') // idle | loading | error | done
   const [error, setError] = useState('')
+
+  const totalPages = Math.ceil(articles.length / PAGE_SIZE)
+  const visibleArticles = articles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleSearch(keyword) {
   
     setStatus('loading')
     setError('')
     try {
-      console.log("Tried to call api")
       const results = await searchArticles(keyword)
-      console.log(results)
 
       setArticles(results)
+      setPage(1)
       setStatus('done')
     } catch (err) {
       setError(err.message)
       setStatus('error')
     }
+  }
+
+  function handlePageChange(nextPage) {
+    setPage(nextPage)
+    window.scrollTo({ top: 0 })
   }
 
   return (
@@ -39,11 +50,14 @@ function App() {
       )}
       {status === 'done' && articles.length === 0 && <p className="status">No articles found.</p>}
       {status === 'done' && (
-        <div className="article-list">
-          {articles.map((article) => (
-            <ArticleCard key={article.url} article={article} />
-          ))}
-        </div>
+        <>
+          <div className="article-list">
+            {visibleArticles.map((article) => (
+              <ArticleCard key={article.url} article={article} />
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={handlePageChange} />
+        </>
       )}
     </main>
   )
