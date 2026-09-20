@@ -1,12 +1,13 @@
 import { useState } from 'react'
 
-function SearchBar({ onSearch, disabled }) {
+// allowEmpty: a blank keyword is still a valid search (e.g. when outlets are picked).
+function SearchBar({ onSearch, disabled, allowEmpty = false }) {
   const [keyword, setKeyword] = useState('')
-  
+
   function handleSubmit(event) {
     event.preventDefault()
     const trimmed = keyword.trim()
-    if (trimmed) {
+    if (trimmed || allowEmpty) {
       onSearch(trimmed)
     }
   }
