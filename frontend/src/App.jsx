@@ -14,7 +14,10 @@ function App() {
     setStatus('loading')
     setError('')
     try {
+      console.log("Tried to call api")
       const results = await searchArticles(keyword)
+      console.log(results)
+
       setArticles(results)
       setStatus('done')
     } catch (err) {

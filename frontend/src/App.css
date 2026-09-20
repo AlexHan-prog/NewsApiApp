@@ -62,10 +62,49 @@
 }
 
 .article-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
   padding: 16px 20px;
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow);
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+  }
+
+  .article-image {
+    flex: none;
+    width: 200px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+
+    @media (max-width: 600px) {
+      width: 100%;
+    }
+  }
+
+  .article-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .article-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    opacity: 0.75;
+
+    /* Separator dot between the source / author / date items. */
+    span + span::before {
+      content: '·';
+      margin-right: 12px;
+    }
+  }
 
   h2 {
     font-size: 20px;
