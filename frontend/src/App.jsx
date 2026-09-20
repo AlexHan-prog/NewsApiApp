@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { searchArticles } from './api/articlesApi'
 import ArticleCard from './components/ArticleCard'
+import OutletPicker from './components/OutletPicker'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import './App.css'
@@ -10,6 +11,7 @@ const PAGE_SIZE = 10
 function App() {
   const [articles, setArticles] = useState([])
   const [page, setPage] = useState(1)
+  const [domains, setDomains] = useState([])
   const [status, setStatus] = useState('idle') // idle | loading | error | done
   const [error, setError] = useState('')
 
@@ -21,7 +23,7 @@ function App() {
     setStatus('loading')
     setError('')
     try {
-      const results = await searchArticles(keyword)
+      const results = await searchArticles(keyword, { domains })
 
       setArticles(results)
       setPage(1)
@@ -40,7 +42,8 @@ function App() {
   return (
     <main className="app">
       <h1>News Search</h1>
-      <SearchBar onSearch={handleSearch} disabled={status === 'loading'} />
+      <SearchBar onSearch={handleSearch} disabled={status === 'loading'} allowEmpty={domains.length > 0} />
+      <OutletPicker selected={domains} onChange={setDomains} />
 
       {status === 'loading' && <p className="status">Searching…</p>}
       {status === 'error' && (
