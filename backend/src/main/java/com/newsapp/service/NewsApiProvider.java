@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 /** NewsAPI's /v2/everything. It has no section or tag filter, but can restrict a search to outlet domains. */
@@ -95,10 +96,16 @@ public class NewsApiProvider implements NewsProvider {
             return response == null || response.articles() == null
                     ? List.of()
                     : response.articles().stream().map(NewsApiProvider::toArticle).toList();
+        } catch (RestClientResponseException e) {
+            // 4xx/5xx from NewsAPI (bad key, rate limit, ...). The message is shown to users, so it is written here
+            // rather than taken from the exception, which contains NewsAPI's raw response body.
+            log.warn("NewsAPI returned HTTP {}", e.getStatusCode().value());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, "NewsAPI returned HTTP " + e.getStatusCode().value());
         } catch (RestClientException e) {
-            // 4xx/5xx from NewsAPI (bad key, rate limit, ...) or an I/O failure reaching it. The key is sent as a
-            // header, so unlike the Guardian's the message can't contain it.
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+            // I/O failure reaching NewsAPI, including a connect or read timeout.
+            log.warn("Could not reach NewsAPI: {}", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not reach NewsAPI");
         }
     }
 

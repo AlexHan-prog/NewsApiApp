@@ -21,8 +21,9 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * The Guardian Open Platform. Unlike NewsAPI it can filter by section and tag, and returns the full article body.
- * It covers one publisher only, so it can't honour a filter for any other outlet.
+ * The Guardian Open Platform. Unlike NewsAPI it can filter by section and tag. It covers one publisher only, so it
+ * can't honour a filter for any other outlet. Only the summary (trailText), byline and thumbnail are fetched, never
+ * the article body.
  */
 @Service
 public class GuardianProvider implements NewsProvider {
@@ -34,7 +35,7 @@ public class GuardianProvider implements NewsProvider {
     private static final Logger log = LoggerFactory.getLogger(GuardianProvider.class);
 
     private static final int PAGE_SIZE = 50; // the API maximum
-    private static final String SHOW_FIELDS = "trailText,byline,thumbnail,body";
+    private static final String SHOW_FIELDS = "trailText,byline,thumbnail";
     private static final String SHOW_TAGS = "contributor";
 
     private final RestClient restClient;
@@ -142,7 +143,7 @@ public class GuardianProvider implements NewsProvider {
                 result.webUrl(),
                 fields == null ? null : blankToNull(fields.thumbnail()),
                 result.webPublicationDate(),
-                fields == null ? null : blankToNull(HtmlText.toPlain(fields.body())),
+                null,
                 NAME,
                 result.sectionName());
     }
