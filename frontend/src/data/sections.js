@@ -1,6 +1,10 @@
 // Sections offered in the picker. `id` is what gets sent to the Guardian's `section` parameter (see its /sections
 // endpoint for the full list); `name` is the label shown to the user. Add a line to offer another section.
 // Note the Guardian's own naming: "Sport" is `sport`, and finance news lives under `business`.
+
+// Sections are a Guardian-only feature, so choosing one forces the outlet filter to this domain (see App.jsx).
+export const GUARDIAN_DOMAIN = 'theguardian.com'
+
 export const SECTIONS = [
   { name: 'Tech', id: 'technology' },
   { name: 'Sport', id: 'sport' },

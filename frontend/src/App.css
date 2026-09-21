@@ -137,6 +137,25 @@
   color: #d92d20;
 }
 
+/* Some news APIs failed but others answered: the list is shown, with this above it. */
+.status-warning {
+  padding: 12px 16px;
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+
+  p {
+    font-weight: 600;
+  }
+
+  ul {
+    margin: 4px 0 0;
+    padding-left: 20px;
+    font-size: 15px;
+  }
+}
+
 .article-list {
   display: flex;
   flex-direction: column;
@@ -267,6 +286,17 @@
     &:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 1px;
+    }
+  }
+
+  &.locked {
+    input {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .outlet-chip {
+      /* No remove button while locked, so the chip needs its own right padding. */
+      padding-right: 12px;
     }
   }
 
