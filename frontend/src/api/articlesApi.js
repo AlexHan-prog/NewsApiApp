@@ -1,11 +1,13 @@
 // Relative URL: proxied to Spring Boot by Vite in dev, same origin when served from the JAR.
 const ARTICLES_URL = '/api/articles'
 
-export async function searchArticles(keyword, { domains = [], signal } = {}) {
+export async function searchArticles(keyword, { domains = [], sections = [], signal } = {}) {
   const params = new URLSearchParams()
   if (keyword) params.set('keyword', keyword)
   if (domains.length > 0) params.set('domains', domains.join(','))
-
+  if (sections.length > 0) params.set('sections', sections.join(','))
+  
+  console.log(`Request url: ${ARTICLES_URL}?${params}`)
   const response = await fetch(`${ARTICLES_URL}?${params}`, { signal })
 
   if (!response.ok) {

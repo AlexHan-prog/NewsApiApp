@@ -1,10 +1,12 @@
 // Outlets offered in the picker. `domain` is what gets sent to NewsAPI's `domains` parameter:
 // lower-case, no protocol, no "www.". Add a line to offer another outlet.
+// The exception is theguardian.com: NewsAPI's free plan has no coverage of it, so the backend answers that outlet
+// from the Guardian API instead.
 //
 // Every entry below was checked against NewsAPI on 2026-09-20 (GET /v2/everything?domains=<domain>): it returned
 // results and the articles' hosts belonged to that domain. These were tried and REMOVED because they returned no
 // articles on the free plan, so don't re-add them without re-testing:
-//   no results:               theguardian.com, nytimes.com, abcnews.go.com, telegraph.co.uk, news.sky.com,
+//   no results:               nytimes.com, abcnews.go.com, telegraph.co.uk, news.sky.com,
 //                             france24.com, ft.com, economist.com, arstechnica.com
 //   count but zero articles:  reuters.com, independent.co.uk, engadget.com
 // Coverage changes over time, and the free plan only reaches back about a month, so re-check occasionally.
@@ -12,6 +14,7 @@ export const OUTLETS = [
   // General news
   { name: 'BBC News', domain: 'bbc.co.uk' },
   { name: 'BBC (international)', domain: 'bbc.com' },
+  { name: 'The Guardian', domain: 'theguardian.com' },
   { name: 'CNN', domain: 'cnn.com' },
   { name: 'Associated Press', domain: 'apnews.com' },
   { name: 'The Washington Post', domain: 'washingtonpost.com' },

@@ -4,6 +4,7 @@ import ArticleCard from './components/ArticleCard'
 import OutletPicker from './components/OutletPicker'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
+import SectionPicker from './components/SectionPicker'
 import masthead from './assets/Daily_Bugle_masthead.png'
 import './App.css'
 
@@ -13,6 +14,7 @@ function App() {
   const [articles, setArticles] = useState([])
   const [page, setPage] = useState(1)
   const [domains, setDomains] = useState([])
+  const [sections, setSections] = useState([])
   const [status, setStatus] = useState('idle') // idle | loading | error | done
   const [error, setError] = useState('')
 
@@ -25,7 +27,7 @@ function App() {
     setError('')
     try {
       console.log(keyword)
-      const results = await searchArticles(keyword, { domains })
+      const results = await searchArticles(keyword, { domains, sections })
 
       setArticles(results)
       setPage(1)
@@ -48,8 +50,13 @@ function App() {
           <img className="masthead-image" src={masthead} alt="Daily Bugle" />
         </h1>
       </header>
-      <SearchBar onSearch={handleSearch} disabled={status === 'loading'} allowEmpty={domains.length > 0} />
+      <SearchBar
+        onSearch={handleSearch}
+        disabled={status === 'loading'}
+        allowEmpty={domains.length > 0 || sections.length > 0}
+      />
       <OutletPicker selected={domains} onChange={setDomains} />
+      <SectionPicker selected={sections} onChange={setSections} />
 
       {status === 'loading' && <p className="status">Searching…</p>}
       {status === 'error' && (

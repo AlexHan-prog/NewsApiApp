@@ -39,6 +39,7 @@ function ArticleCard({ article }) {
         <p className="article-meta">
           {[
             sourceName,
+            article.section,
             article.author && `By ${article.author}`,
             publishedDate && <time dateTime={article.publishedAt}>{publishedDate}</time>,
           ]
