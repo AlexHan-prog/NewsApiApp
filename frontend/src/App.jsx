@@ -4,7 +4,7 @@ import ArticleCard from './components/ArticleCard'
 import OutletPicker from './components/OutletPicker'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
-import logo from './assets/daily_bugle_logo_trimmed.png'
+import masthead from './assets/Daily_Bugle_masthead.png'
 import './App.css'
 
 const PAGE_SIZE = 10
@@ -44,8 +44,9 @@ function App() {
   return (
     <main className="app">
       <header className="masthead">
-        <img className="masthead-logo" src={logo} alt="" />
-        <h1>The Daily Bugle</h1>
+        <h1>
+          <img className="masthead-image" src={masthead} alt="Daily Bugle" />
+        </h1>
       </header>
       <SearchBar onSearch={handleSearch} disabled={status === 'loading'} allowEmpty={domains.length > 0} />
       <OutletPicker selected={domains} onChange={setDomains} />
