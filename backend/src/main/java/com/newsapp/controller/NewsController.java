@@ -1,10 +1,10 @@
 package com.newsapp.controller;
 
-import com.newsapp.model.Article;
 import com.newsapp.model.SearchCriteria;
+import com.newsapp.model.SearchResult;
 import com.newsapp.service.ArticleSearchService;
+import com.newsapp.service.GuardianProvider;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -34,10 +34,12 @@ public class NewsController {
 
     /**
      * A search needs a keyword, an outlet, a section or a tag (or any mix). {@code domains}, {@code sections} and
-     * {@code tags} are comma-separated. Sections and tags are Guardian filters, so they narrow the search to it.
+     * {@code tags} are comma-separated. Sections and tags are Guardian filters, so they narrow the search to it and
+     * can only be combined with the {@code theguardian.com} outlet (400 otherwise). The response carries a warning for
+     * each provider that failed while others succeeded.
      */
     @GetMapping("/articles")
-    public List<Article> search(
+    public SearchResult search(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) String domains,
             @RequestParam(required = false) String sections,
@@ -50,6 +52,15 @@ public class NewsController {
         if (criteria.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Enter a keyword or pick at least one outlet or section");
+        }
+        // The UI locks the outlet picker to The Guardian when a section is chosen; refuse the same combination here
+        // rather than quietly ignoring the other outlets for someone calling the API directly.
+        boolean guardianOnlyFilter = !criteria.sections().isEmpty() || !criteria.tags().isEmpty();
+        boolean otherOutlet = criteria.domains().stream().anyMatch(domain -> !domain.equals(GuardianProvider.DOMAIN));
+        if (guardianOnlyFilter && otherOutlet) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Sections and tags only work with The Guardian; remove the other outlets");
         }
         return articleSearchService.search(criteria);
     }
