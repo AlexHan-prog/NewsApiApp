@@ -1,0 +1,27 @@
+package com.newsapp.model;
+
+import java.util.List;
+
+/**
+ * Envelope returned by the Guardian's /search. Unlike NewsAPI everything is nested under {@code response}. Only the
+ * fields we map are declared; {@code fields} and {@code tags} are present only if requested via show-fields/show-tags.
+ */
+public record GuardianResponse(Response response) {
+
+    public record Response(String status, int total, List<Result> results) {}
+
+    public record Result(
+            String id,
+            String sectionId,
+            String sectionName,
+            String webPublicationDate,
+            String webTitle,
+            String webUrl,
+            Fields fields,
+            List<Tag> tags) {}
+
+    /** Everything here is a string, HTML where noted. */
+    public record Fields(String trailText, String byline, String thumbnail, String body) {}
+
+    public record Tag(String id, String type, String webTitle) {}
+}

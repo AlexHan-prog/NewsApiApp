@@ -2,12 +2,8 @@ package com.newsapp.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
-/** Caps real NewsAPI calls per UTC day. In memory, so a restart resets the count. */
-@Component
+/** Caps real calls to one news API per UTC day. In memory, so a restart resets the count. One instance per provider. */
 public class DailyCallBudget {
 
     private final int limit;
@@ -16,8 +12,7 @@ public class DailyCallBudget {
     private LocalDate day;
     private int used;
 
-    @Autowired
-    public DailyCallBudget(@Value("${newsapi.daily-budget}") int limit) {
+    public DailyCallBudget(int limit) {
         this(limit, Clock.systemUTC());
     }
 
