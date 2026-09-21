@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.newsapp.model.Article;
+import com.newsapp.model.ProviderWarning;
 import com.newsapp.model.SearchCriteria;
+import com.newsapp.model.SearchResult;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -24,6 +27,10 @@ class ArticleSearchServiceTest {
         return new Article(null, null, "title " + url, null, url, null, publishedAt, null, provider, null);
     }
 
+    private static List<String> urls(SearchResult result) {
+        return result.articles().stream().map(Article::url).toList();
+    }
+
     @Test
     void mergesSortsNewestFirstAndDropsDuplicateUrls() {
         StubProvider a = new StubProvider(
@@ -38,20 +45,24 @@ class ArticleSearchServiceTest {
                         article("dup", "2026-09-20T10:00:00Z", "B"),
                         article("u2", "2026-09-21T09:00:00+00:00", "B")));
 
-        List<Article> result = new ArticleSearchService(List.of(a, b)).search(ANY);
+        SearchResult result = new ArticleSearchService(List.of(a, b)).search(ANY);
 
-        assertEquals(List.of("u2", "dup", "u1", "undated"), result.stream().map(Article::url).toList());
-        assertEquals("A", result.get(1).provider(), "first provider's copy of a duplicate wins");
+        assertEquals(List.of("u2", "dup", "u1", "undated"), urls(result));
+        assertEquals("A", result.articles().get(1).provider(), "first provider's copy of a duplicate wins");
+        assertTrue(result.warnings().isEmpty(), "nothing failed, so nothing to warn about");
     }
 
     @Test
-    void oneProviderFailingStillReturnsTheOthers() {
+    void oneProviderFailingStillReturnsTheOthersWithAWarning() {
         StubProvider ok = new StubProvider("ok", List.of(article("u1", "2026-09-19T10:00:00Z", "ok")));
-        StubProvider broken = new StubProvider("broken", new ResponseStatusException(HttpStatus.BAD_GATEWAY, "down"));
+        StubProvider broken = new StubProvider(
+                "NewsAPI", new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Daily NewsAPI request budget reached."));
 
-        List<Article> result = new ArticleSearchService(List.of(broken, ok)).search(ANY);
+        SearchResult result = new ArticleSearchService(List.of(broken, ok)).search(ANY);
 
-        assertEquals(List.of("u1"), result.stream().map(Article::url).toList());
+        assertEquals(List.of("u1"), urls(result));
+        assertEquals(
+                List.of(new ProviderWarning("NewsAPI", "Daily NewsAPI request budget reached.")), result.warnings());
     }
 
     @Test
@@ -71,9 +82,26 @@ class ArticleSearchServiceTest {
         StubProvider ok = new StubProvider("ok", List.of(article("u1", "2026-09-19T10:00:00Z", "ok")));
         StubProvider buggy = new StubProvider("buggy", new IllegalStateException("bug"));
 
-        List<Article> result = new ArticleSearchService(List.of(buggy, ok)).search(ANY);
+        SearchResult result = new ArticleSearchService(List.of(buggy, ok)).search(ANY);
 
-        assertEquals(1, result.size());
+        assertEquals(1, result.articles().size());
+        assertEquals(List.of(new ProviderWarning("buggy", "buggy failed")), result.warnings());
+    }
+
+    @Test
+    void aProviderThatNeverAnswersIsGivenUpOnAndReportedAsAWarning() {
+        StubProvider ok = new StubProvider("ok", List.of(article("u1", "2026-09-19T10:00:00Z", "ok")));
+        StubProvider hung = new StubProvider("hung", List.of(article("never", null, "hung")));
+        hung.delayMillis = 5_000;
+        ArticleSearchService service = new ArticleSearchService(List.of(hung, ok), Duration.ofMillis(200));
+
+        long started = System.nanoTime();
+        SearchResult result = service.search(ANY);
+        long tookMillis = (System.nanoTime() - started) / 1_000_000;
+
+        assertTrue(tookMillis < 3_000, "waited " + tookMillis + " ms for a provider that had a 200 ms timeout");
+        assertEquals(List.of("u1"), urls(result));
+        assertEquals(List.of(new ProviderWarning("hung", "hung took too long to respond")), result.warnings());
     }
 
     @Test
@@ -82,11 +110,12 @@ class ArticleSearchServiceTest {
         skipped.skip = true;
         StubProvider used = new StubProvider("used", List.of(article("u1", "2026-09-19T10:00:00Z", "used")));
 
-        List<Article> result = new ArticleSearchService(List.of(skipped, used)).search(ANY);
+        SearchResult result = new ArticleSearchService(List.of(skipped, used)).search(ANY);
 
         assertEquals(0, skipped.calls.get());
         assertEquals(1, used.calls.get());
-        assertEquals(1, result.size());
+        assertEquals(1, result.articles().size());
+        assertTrue(result.warnings().isEmpty(), "a provider that was never asked can't have failed");
     }
 
     @Test
@@ -94,7 +123,10 @@ class ArticleSearchServiceTest {
         StubProvider skipped = new StubProvider("skipped", List.of());
         skipped.skip = true;
 
-        assertTrue(new ArticleSearchService(List.of(skipped)).search(ANY).isEmpty());
+        SearchResult result = new ArticleSearchService(List.of(skipped)).search(ANY);
+
+        assertTrue(result.articles().isEmpty());
+        assertTrue(result.warnings().isEmpty());
     }
 
     static final class StubProvider implements NewsProvider {
@@ -103,6 +135,7 @@ class ArticleSearchServiceTest {
         final RuntimeException failure;
         final AtomicInteger calls = new AtomicInteger();
         boolean skip;
+        long delayMillis;
 
         StubProvider(String name, List<Article> articles) {
             this.name = name;
@@ -129,6 +162,13 @@ class ArticleSearchServiceTest {
         @Override
         public List<Article> search(SearchCriteria criteria) {
             calls.incrementAndGet();
+            if (delayMillis > 0) {
+                try {
+                    Thread.sleep(delayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             if (failure != null) {
                 throw failure;
             }

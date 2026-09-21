@@ -15,8 +15,10 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.server.ResponseStatusException;
 
 class NewsControllerTest {
 
@@ -52,34 +54,89 @@ class NewsControllerTest {
                         "Technology"));
             }
         };
-        mvc = MockMvcBuilders.standaloneSetup(new NewsController(new ArticleSearchService(List.of(recorder))))
+        // Always fails, so every response also carries a warning.
+        NewsProvider flaky = new NewsProvider() {
+            @Override
+            public String name() {
+                return "flaky";
+            }
+
+            @Override
+            public Optional<SearchCriteria> narrow(SearchCriteria criteria) {
+                return Optional.of(criteria);
+            }
+
+            @Override
+            public List<Article> search(SearchCriteria criteria) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "flaky is having a bad day");
+            }
+        };
+        mvc = MockMvcBuilders.standaloneSetup(
+                        new NewsController(new ArticleSearchService(List.of(recorder, flaky))))
                 .build();
     }
 
     @Test
     void normalizesFiltersAndReturnsArticleJson() throws Exception {
+        mvc.perform(get("/api/articles").param("keyword", "  AI  ").param("domains", "B.com, a.com,"))
+                .andExpect(status().isOk());
+
+        SearchCriteria outlets = requested.get();
+        assertNotNull(outlets);
+        assertEquals("AI", outlets.keyword());
+        assertEquals(List.of("a.com", "b.com"), List.copyOf(outlets.domains()));
+
         mvc.perform(get("/api/articles")
-                        .param("keyword", "  AI  ")
-                        .param("domains", "B.com, a.com,")
+                        .param("domains", "TheGuardian.com")
                         .param("sections", "Technology,sport,technology")
                         .param("tags", "Technology/Apple"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].title").value("T"))
-                .andExpect(jsonPath("$[0].source.name").value("Src"))
-                .andExpect(jsonPath("$[0].provider").value("recorder"))
-                .andExpect(jsonPath("$[0].section").value("Technology"));
+                .andExpect(status().isOk());
 
-        SearchCriteria criteria = requested.get();
-        assertNotNull(criteria);
-        assertEquals("AI", criteria.keyword());
-        assertEquals(List.of("a.com", "b.com"), List.copyOf(criteria.domains()));
-        assertEquals(List.of("sport", "technology"), List.copyOf(criteria.sections()));
-        assertEquals(List.of("technology/apple"), List.copyOf(criteria.tags()));
+        SearchCriteria guardian = requested.get();
+        assertEquals(List.of("theguardian.com"), List.copyOf(guardian.domains()));
+        assertEquals(List.of("sport", "technology"), List.copyOf(guardian.sections()));
+        assertEquals(List.of("technology/apple"), List.copyOf(guardian.tags()));
+    }
+
+    @Test
+    void returnsArticlesAndWarningsInOneEnvelope() throws Exception {
+        mvc.perform(get("/api/articles").param("keyword", "AI"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.articles[0].title").value("T"))
+                .andExpect(jsonPath("$.articles[0].source.name").value("Src"))
+                .andExpect(jsonPath("$.articles[0].provider").value("recorder"))
+                .andExpect(jsonPath("$.articles[0].section").value("Technology"))
+                .andExpect(jsonPath("$.warnings[0].provider").value("flaky"))
+                .andExpect(jsonPath("$.warnings[0].message").value("flaky is having a bad day"));
     }
 
     @Test
     void aSectionAloneIsAValidSearch() throws Exception {
         mvc.perform(get("/api/articles").param("sections", "technology")).andExpect(status().isOk());
+    }
+
+    @Test
+    void sectionsAndTagsMayBeCombinedWithTheGuardianOutlet() throws Exception {
+        mvc.perform(get("/api/articles").param("sections", "technology").param("domains", "theguardian.com"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/articles").param("tags", "technology/apple").param("domains", "TheGuardian.com"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void sectionsAndTagsCannotBeCombinedWithOtherOutlets() throws Exception {
+        mvc.perform(get("/api/articles").param("sections", "technology").param("domains", "bbc.co.uk"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/articles").param("sections", "technology").param("domains", "theguardian.com,bbc.co.uk"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/articles").param("tags", "technology/apple").param("domains", "bbc.co.uk"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void otherOutletsAreFineWithoutSectionsOrTags() throws Exception {
+        mvc.perform(get("/api/articles").param("keyword", "x").param("domains", "bbc.co.uk,npr.org"))
+                .andExpect(status().isOk());
     }
 
     @Test

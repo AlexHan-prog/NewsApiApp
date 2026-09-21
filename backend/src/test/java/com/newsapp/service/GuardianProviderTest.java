@@ -40,12 +40,12 @@ class GuardianProviderTest {
                "webPublicationDate":"2026-09-20T10:00:00Z","webTitle":"AI news",
                "webUrl":"https://www.theguardian.com/technology/2026/sep/20/ai",
                "fields":{"trailText":"A <strong>big</strong> story &amp; more","byline":"Jane Doe",
-                         "thumbnail":"https://media.guim.co.uk/x.jpg","body":"<p>First para.</p><p>Second&nbsp;para.</p>"},
+                         "thumbnail":"https://media.guim.co.uk/x.jpg"},
                "tags":[]},
               {"id":"sport/2026/sep/19/x","sectionId":"sport","sectionName":"Sport",
                "webPublicationDate":"2026-09-19T08:00:00Z","webTitle":"Sport story",
                "webUrl":"https://www.theguardian.com/sport/x",
-               "fields":{"trailText":"","body":"<p>Body</p>"},
+               "fields":{"trailText":""},
                "tags":[{"id":"a","type":"keyword","webTitle":"Kw"},
                        {"id":"profile/joe","type":"contributor","webTitle":"Joe Bloggs"}]}
             ]}}
@@ -85,7 +85,7 @@ class GuardianProviderTest {
         assertEquals("Jane Doe", first.author());
         assertEquals("A big story & more", first.description());
         assertEquals("https://media.guim.co.uk/x.jpg", first.urlToImage());
-        assertEquals("First para.\nSecond para.", first.content());
+        assertNull(first.content(), "article bodies are not fetched");
         assertEquals("Technology", first.section());
         assertEquals("The Guardian", first.provider());
         assertEquals("The Guardian", first.source().name());
@@ -94,7 +94,7 @@ class GuardianProviderTest {
         assertEquals("Joe Bloggs", second.author(), "no byline, so the contributor tag is used");
         assertNull(second.description(), "blank trailText becomes null");
         assertNull(second.urlToImage());
-        assertEquals("Body", second.content());
+        assertNull(second.content());
         server.verify();
     }
 
@@ -102,7 +102,8 @@ class GuardianProviderTest {
     void sendsKeyFieldsAndFiltersEncoded() {
         GuardianProvider provider = providerWithBudget(5);
         server.expect(requestTo(containsString("api-key=" + KEY)))
-                .andExpect(requestTo(containsString("show-fields=trailText,byline,thumbnail,body")))
+                .andExpect(requestTo(containsString("show-fields=trailText,byline,thumbnail&")))
+                .andExpect(requestTo(not(containsString("body"))))
                 .andExpect(requestTo(containsString("page-size=50")))
                 .andExpect(requestTo(containsString("q=a%2Bb%20%26%20c")))
                 .andExpect(requestTo(containsString("section=business%7Ctechnology")))

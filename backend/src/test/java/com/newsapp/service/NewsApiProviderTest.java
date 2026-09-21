@@ -8,10 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.newsapp.model.Article;
 import com.newsapp.model.SearchCriteria;
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -85,6 +88,34 @@ class NewsApiProviderTest {
                 ResponseStatusException.class, () -> provider.search(criteria("cats", List.of(), List.of())));
 
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, e.getStatusCode());
+    }
+
+    @Test
+    void httpErrorBecomesBadGatewayWithoutTheUpstreamBody() {
+        NewsApiProvider provider = providerWithBudget(5);
+        server.expect(requestTo(startsWith("https://newsapi.org/v2/everything")))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"status\":\"error\",\"code\":\"apiKeyInvalid\",\"message\":\"secret detail\"}"));
+
+        ResponseStatusException e = assertThrows(
+                ResponseStatusException.class, () -> provider.search(criteria("cats", List.of(), List.of())));
+
+        assertEquals(HttpStatus.BAD_GATEWAY, e.getStatusCode());
+        assertEquals("NewsAPI returned HTTP 401", e.getReason());
+    }
+
+    @Test
+    void ioErrorOrTimeoutBecomesBadGateway() {
+        NewsApiProvider provider = providerWithBudget(5);
+        server.expect(requestTo(startsWith("https://newsapi.org/v2/everything")))
+                .andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+        ResponseStatusException e = assertThrows(
+                ResponseStatusException.class, () -> provider.search(criteria("cats", List.of(), List.of())));
+
+        assertEquals(HttpStatus.BAD_GATEWAY, e.getStatusCode());
+        assertEquals("Could not reach NewsAPI", e.getReason());
     }
 
     @Test
