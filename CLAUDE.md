@@ -129,6 +129,111 @@
 
     Error shape: `{"errors": ["message"]}` or `{"errors": {"paramName": "message"}}` for param-specific errors (different from NewsAPI's `{status, code, message}` shape — the mapping/error-handling layer needs to branch per provider). HTTP codes: 400 malformed request, 401 missing/invalid key, 403 daily quota exceeded (resets 00:00 UTC), 429 rate limit (1 req/sec) exceeded, 500/503 provider-side failure.
 
+3. Guardian Open Platform (https://open-platform.theguardian.com)
+    Features:
+    - Free tier ("developer" key): rate-limited: up to 500 calls/day, up to 1 call/second and access to over 1.9 million articles.
+    - Endpoints: `/search` (content), `/tags`, `/sections`, `/editions`, single item (path-based)
+    - Results are paginated, 10 per page by default (`page-size` param, 1-50)
+    - Base URL: `https://content.guardianapis.com/` (HTTPS supported/encouraged, incl. client-side use)
+    - No official Java client library — call it directly with Spring's `RestClient`, same pattern as NewsAPI/GNews
+
+    Authentication:
+    - `api-key` query param on every request, e.g. `?api-key=YOUR_KEY` (sign up at https://open-platform.theguardian.com/access)
+
+    Query operators (supported in `q`):
+    - `AND`, `OR` (default/implicit between terms), `NOT` — AND has higher precedence than OR, use parentheses to override
+      e.g. `q=debate AND (economy OR immigration)`, `q=debate AND NOT immigration`
+    - Exact phrase search with double quotes, e.g. `q="mitochondrial donation"`
+    - Filter params (not `q`) support their own boolean syntax: AND = `,`, OR = `|`, NOT = `-`, grouped with `()`
+
+    **GET /search** — all content, filtered/searched
+    Params:
+    - `q` — free text search, supports operators above
+    - `query-fields` — which indexed fields `q` searches, e.g. `body`, `body,thumbnail`
+    - `section` — restrict to section(s), e.g. `football`
+    - `tag` — restrict to tag(s), e.g. `technology/apple`
+    - `reference` / `reference-type` — restrict by reference, e.g. `isbn/9780718178949` / `isbn`
+    - `ids` — restrict to specific content IDs
+    - `rights` — `syndicatable` | `subscription-databases`
+    - `production-office` — e.g. `aus`
+    - `lang` — ISO language code, e.g. `en`, `fr`
+    - `star-rating` — 1-5
+    - `from-date` / `to-date` — `YYYY-MM-DD`
+    - `use-date` — which date `from-date`/`to-date` filter on: `published` (default), `first-publication`, `newspaper-edition`, `last-modified`
+    - `order-by` — `newest` (default), `oldest`, `relevance` (default when `q` is set)
+    - `order-date` — which date to sort by: `published` (default), `newspaper-edition`, `last-modified`
+    - `page` — default 1
+    - `page-size` — default 10, max 50
+    - `show-fields` — comma-separated extra fields to include, e.g. `trailText,headline,thumbnail,body,byline,wordcount` (see field list below; `all` for everything)
+    - `show-tags` — comma-separated tag types to include: `blog,contributor,keyword,newspaper-book,newspaper-book-section,publication,series,tone,type` (or `all`)
+    - `show-section` — `true`/`false`, include section metadata
+    - `show-blocks`, `show-elements`, `show-references`, `show-rights` — see Guardian docs for sub-options (blocks/live-blog content, media elements, ISBN/IMDB-style references, rights)
+    - `format` — `json` (default) | `xml`
+    - `callback` — JSONP callback name for cross-origin requests
+
+    `show-fields` values worth knowing for the mapper: `trailText` (HTML summary), `headline` (HTML), `body` (full HTML article body), `standfirst`, `byline`, `thumbnail`, `wordcount`, `lastModified`, `shortUrl`, `starRating`. All are strings (HTML where noted); booleans/integers still come back as strings.
+
+    Deep pagination: `page`/`page-size` only reliably work down to a few thousand results. Beyond that, use the `/content/{id}/next` endpoint — take the `id` of the last result seen and call `https://content.guardianapis.com/content/{that id}/next?<same q/page-size/order-by params>`; repeat until a response returns fewer than `page-size` results, which signals the end.
+
+    **GET /tags** — list/search the ~50,000+ categorisation tags (types: `keyword`, `series`, `contributor`, `tone`, `type`, `blog`)
+    Params: `q` (tag contains this text), `web-title` (tag starts with this text), `type`, `section`, `reference`, `reference-type`, `page`, `page-size`, `show-references`
+
+    **GET /sections** — list content sections (used to logically group content, e.g. `technology`, `football`)
+    Params: `q` (filter by section name)
+
+    **GET /editions** — list regionalised front pages (UK, US, Australia, Europe)
+    Params: `q` (filter by edition name)
+
+    **Single item** — replace `theguardian.com` with `content.guardianapis.com` in any Guardian web URL (or use `id`/`apiUrl` values from other endpoints) to fetch the API representation of that content, tag, or section. Supports the same filter/date/paging/`show-*` params as `/search`.
+
+    Response shape (`/search`):
+    ```json
+    {
+      "response": {
+        "status": "ok",
+        "userTier": "developer",
+        "total": 5857,
+        "startIndex": 1,
+        "pageSize": 10,
+        "currentPage": 1,
+        "pages": 586,
+        "orderBy": "relevance",
+        "results": [
+          {
+            "id": "world/2022/oct/21/russia-ukraine-war-latest-what-we-know-on-day-240-of-the-invasion",
+            "type": "article",
+            "sectionId": "world",
+            "sectionName": "World news",
+            "webPublicationDate": "2022-10-21T14:06:14Z",
+            "webTitle": "Russia-Ukraine war latest: what we know on day 240 of the invasion",
+            "webUrl": "string",
+            "apiUrl": "string",
+            "isHosted": false,
+            "pillarId": "pillar/news",
+            "pillarName": "News"
+          }
+        ]
+      }
+    }
+    ```
+    Everything is nested under a top-level `response` object (unlike NewsAPI/GNews, which are flat) — the mapper needs to unwrap `response.results` rather than a top-level `articles` array. No `status: error` example is published for this API; treat non-`ok` `status` or a non-2xx HTTP code as an error and surface the HTTP status/body.
+
+    Notes for the mapping layer:
+    - Base response has minimal fields (`id`, `type`, `sectionId`, `sectionName`, `webPublicationDate`, `webTitle`, `webUrl`, `apiUrl`, `isHosted`, `pillarId`, `pillarName`) — no summary, author, or image unless requested via `show-fields`/`show-tags`/`show-elements`. Must set `show-fields=trailText,byline,thumbnail,body` (or similar) to get comparable data to NewsAPI/GNews (summary, author, image).
+    - No dedicated `author` field — author comes back as `byline` (via `show-fields=byline`) or as a `contributor`-type tag (via `show-tags=contributor`), needs its own extraction logic per provider.
+    - `webPublicationDate` is consistently ISO 8601 UTC with `Z` suffix, more consistent than the other two providers.
+    - No description/summary field by default — closest equivalent is `trailText` (HTML, via `show-fields`), which may contain markup to strip for plain-text display.
+    - `total`/`pages`/`currentPage` are at `response` level (not per-article) — useful for building pagination controls directly.
+
+    Search criteria only the Guardian can honour (NewsAPI has no equivalent):
+    - Section (`section`), e.g. Tech = `technology`, Sport = `sport`, Finance = `business`. Exposed in the UI as section chips.
+    - Tag (`tag`), e.g. `technology/apple`. Accepted by the backend (`tags` param) but not in the UI yet.
+
+### How the APIs are combined
+- The backend (`ArticleSearchService`) sends each search to every provider that can honour all of its filters, merges the results newest-first and drops duplicate URLs. If one provider fails the others' articles are still returned.
+- Sections/tags -> Guardian only. Outlet (`domains`) filter -> NewsAPI, except `theguardian.com`, which the Guardian API answers (NewsAPI's free plan has no coverage of it). No filters -> both.
+- Each provider has its own daily call budget and cache. GNews is documented above but not integrated.
+
 ## Project structure
 - React app setup with Vite. React App calls the Spring Boot API and renders results. 
 
