@@ -10,11 +10,20 @@ function labelFor(domain) {
 
 // Multi-select: `selected` is an array of domains. Type to filter the static OUTLETS list, or type a
 // domain that isn't listed and add it as-is.
-function OutletPicker({ selected, onChange }) {
+// locked: nothing can be added or removed (used while sections are selected, which only The Guardian supports).
+function OutletPicker({ selected, onChange, locked = false }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
+  const [wasLocked, setWasLocked] = useState(locked)
   const containerRef = useRef(null)
+
+  // Locking closes the list, so it can't pop back open on its own when the picker is unlocked again.
+  // (Adjusting state during render when a prop changes, per the React docs, rather than in an effect.)
+  if (locked !== wasLocked) {
+    setWasLocked(locked)
+    if (locked) setOpen(false)
+  }
   const listId = useId()
 
   const options = useMemo(() => {
@@ -39,7 +48,7 @@ function OutletPicker({ selected, onChange }) {
   }, [query, selected])
 
   const active = Math.min(highlight, options.length - 1)
-  const listVisible = open && options.length > 0
+  const listVisible = open && options.length > 0 && !locked
 
   useEffect(() => {
     function handleMouseDown(event) {
@@ -81,15 +90,17 @@ function OutletPicker({ selected, onChange }) {
   }
 
   return (
-    <div className="outlet-picker" ref={containerRef}>
+    <div className={locked ? 'outlet-picker locked' : 'outlet-picker'} ref={containerRef}>
       {selected.length > 0 && (
         <ul className="outlet-chips" aria-label="Selected outlets">
           {selected.map((domain) => (
             <li key={domain} className="outlet-chip">
               {labelFor(domain)}
-              <button type="button" aria-label={`Remove ${labelFor(domain)}`} onClick={() => remove(domain)}>
-                ×
-              </button>
+              {!locked && (
+                <button type="button" aria-label={`Remove ${labelFor(domain)}`} onClick={() => remove(domain)}>
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -102,7 +113,8 @@ function OutletPicker({ selected, onChange }) {
         aria-expanded={listVisible}
         aria-controls={listId}
         aria-activedescendant={listVisible ? `${listId}-${active}` : undefined}
-        placeholder="Filter by outlet (optional)"
+        disabled={locked}
+        placeholder={locked ? 'Locked to The Guardian while sections are selected' : 'Filter by outlet (optional)'}
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)

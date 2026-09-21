@@ -1,7 +1,7 @@
 import { SECTIONS } from '../data/sections'
 
 // Multi-select: `selected` is an array of Guardian section ids. Sections are a Guardian feature (NewsAPI has no
-// equivalent), so choosing any narrows the search to The Guardian.
+// equivalent), so choosing any narrows the search to The Guardian; App.jsx also locks the outlet picker to it.
 function SectionPicker({ selected, onChange }) {
   function toggle(id) {
     onChange(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id])
@@ -25,7 +25,9 @@ function SectionPicker({ selected, onChange }) {
           </li>
         ))}
       </ul>
-      {selected.length > 0 && <p className="section-hint">Sections search The Guardian only.</p>}
+      {selected.length > 0 && (
+        <p className="section-hint">Sections search The Guardian only, so outlets are locked to it.</p>
+      )}
     </div>
   )
 }
