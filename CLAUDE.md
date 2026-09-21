@@ -232,6 +232,10 @@
 ### How the APIs are combined
 - The backend (`ArticleSearchService`) sends each search to every provider that can honour all of its filters, merges the results newest-first and drops duplicate URLs. If one provider fails the others' articles are still returned.
 - Sections/tags -> Guardian only. Outlet (`domains`) filter -> NewsAPI, except `theguardian.com`, which the Guardian API answers (NewsAPI's free plan has no coverage of it). No filters -> both.
+- Because of that, the UI selects The Guardian and locks the outlet picker (dropping any other outlets) while a section is chosen, and the API rejects sections/tags combined with any other outlet with a 400.
+- `/api/articles` returns `{ "articles": [...], "warnings": [{ "provider", "message" }] }`. A warning is added for each provider that failed (budget used up, upstream error, timeout) while another succeeded; the UI shows them above the results. If every provider fails the request itself fails.
+- Only the Guardian's summary (`trailText`), byline and thumbnail are fetched, never the article body, so Guardian articles have no `content`.
+- Calls to both APIs have a 5s connect / 10s read timeout (`spring.http.client.*`), and one search waits at most `search.provider-timeout` (15s) for any provider.
 - Each provider has its own daily call budget and cache. GNews is documented above but not integrated.
 
 ## Project structure
