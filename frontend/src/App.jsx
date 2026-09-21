@@ -5,6 +5,7 @@ import OutletPicker from './components/OutletPicker'
 import Pagination from './components/Pagination'
 import SearchBar from './components/SearchBar'
 import SectionPicker from './components/SectionPicker'
+import { GUARDIAN_DOMAIN } from './data/sections'
 import masthead from './assets/Daily_Bugle_masthead.png'
 import './App.css'
 
@@ -12,6 +13,7 @@ const PAGE_SIZE = 10
 
 function App() {
   const [articles, setArticles] = useState([])
+  const [warnings, setWarnings] = useState([]) // news APIs that failed while others answered
   const [page, setPage] = useState(1)
   const [domains, setDomains] = useState([])
   const [sections, setSections] = useState([])
@@ -29,13 +31,21 @@ function App() {
       console.log(keyword)
       const results = await searchArticles(keyword, { domains, sections })
 
-      setArticles(results)
+      setArticles(results.articles)
+      setWarnings(results.warnings)
       setPage(1)
       setStatus('done')
     } catch (err) {
       setError(err.message)
       setStatus('error')
     }
+  }
+
+  // Sections only exist on The Guardian, so picking one replaces the outlet filter with The Guardian (dropping any
+  // other outlets) and OutletPicker is locked; clearing the sections leaves no outlets selected.
+  function handleSectionsChange(nextSections) {
+    setSections(nextSections)
+    setDomains(nextSections.length > 0 ? [GUARDIAN_DOMAIN] : [])
   }
 
   function handlePageChange(nextPage) {
@@ -55,14 +65,26 @@ function App() {
         disabled={status === 'loading'}
         allowEmpty={domains.length > 0 || sections.length > 0}
       />
-      <OutletPicker selected={domains} onChange={setDomains} />
-      <SectionPicker selected={sections} onChange={setSections} />
+      <OutletPicker selected={domains} onChange={setDomains} locked={sections.length > 0} />
+      <SectionPicker selected={sections} onChange={handleSectionsChange} />
 
       {status === 'loading' && <p className="status">Searching…</p>}
       {status === 'error' && (
         <p className="status status-error" role="alert">
           {error}
         </p>
+      )}
+      {status === 'done' && warnings.length > 0 && (
+        <div className="status status-warning" role="status">
+          <p>Some results may be missing:</p>
+          <ul>
+            {warnings.map((warning) => (
+              <li key={warning.provider}>
+                <strong>{warning.provider}</strong>: {warning.message}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {status === 'done' && articles.length === 0 && <p className="status">No articles found.</p>}
       {status === 'done' && (
