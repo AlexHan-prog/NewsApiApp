@@ -71,6 +71,29 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
+
+    /* The lower-priority action next to Search (Political leaning). */
+    &.secondary {
+      color: var(--accent-text);
+      background: var(--accent-bg);
+      white-space: nowrap;
+
+      &:hover:not(:disabled) {
+        background: var(--accent-border);
+      }
+    }
+  }
+
+  /* Three controls don't fit on a phone: the input takes its own row and the buttons share the next. */
+  @media (max-width: 600px) {
+    flex-wrap: wrap;
+
+    input {
+      flex-basis: 100%;
+    }
+    button {
+      flex: 1;
+    }
   }
 }
 
@@ -135,6 +158,96 @@
 
 .status-error {
   color: #d92d20;
+}
+
+/* Political-leaning estimate on a demo article card: a <details> whose summary is the badge, expanding to Claude's
+   explanation and the quotes behind it. Colour is only a hint: the label is always written out. */
+.leaning {
+  margin-bottom: 8px;
+}
+
+.leaning-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none; /* hide the default disclosure triangle; the pill shape is enough of an affordance */
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &.leaning-left {
+    color: var(--leaning-left);
+  }
+  &.leaning-right {
+    color: var(--leaning-right);
+  }
+}
+
+.leaning-detail {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--code-bg);
+  border-radius: 8px;
+
+  p {
+    font-size: 15px;
+  }
+}
+
+.leaning-excerpts {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaning-excerpt {
+  padding-left: 10px;
+  border-left: 3px solid color-mix(in srgb, currentColor 50%, transparent);
+
+  &.leaning-left {
+    color: var(--leaning-left);
+  }
+  &.leaning-right {
+    color: var(--leaning-right);
+  }
+
+  blockquote {
+    margin: 0;
+    font-size: 14px;
+    font-style: italic;
+    color: var(--text-h);
+  }
+}
+
+.leaning-excerpt-reason {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* The fixed political-leaning demo panel, shown before the user's first search. */
+.leaning-demo {
+  margin-bottom: 32px;
+
+  h2 {
+    font-size: 20px;
+  }
+}
+
+.leaning-demo-intro {
+  margin-bottom: 16px;
+  color: var(--text);
 }
 
 /* Some news APIs failed but others answered: the list is shown, with this above it. */

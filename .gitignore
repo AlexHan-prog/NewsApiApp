@@ -12,3 +12,6 @@ frontend/dist/
 # env files
 .env
 **/.env
+
+# python
+__pycache__/
