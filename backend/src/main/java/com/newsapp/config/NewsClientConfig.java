@@ -1,6 +1,9 @@
 package com.newsapp.config;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.newsapp.service.DailyCallBudget;
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +27,17 @@ public class NewsClientConfig {
     @Bean
     public RestClient guardianRestClient(RestClient.Builder builder) {
         return builder.baseUrl("https://content.guardianapis.com").build();
+    }
+
+    /**
+     * Claude, for the political-leaning demo. The key is read explicitly from {@code anthropic.key}, the same way
+     * every other key in this app is wired, rather than relying on the SDK's own {@code ANTHROPIC_API_KEY}
+     * environment-variable lookup.
+     */
+    @Bean
+    public AnthropicClient anthropicClient(
+            @Value("${anthropic.key}") String apiKey, @Value("${anthropic.timeout}") Duration timeout) {
+        return AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(timeout).build();
     }
 
     @Bean

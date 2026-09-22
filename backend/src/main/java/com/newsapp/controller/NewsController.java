@@ -4,6 +4,7 @@ import com.newsapp.model.SearchCriteria;
 import com.newsapp.model.SearchResult;
 import com.newsapp.service.ArticleSearchService;
 import com.newsapp.service.GuardianProvider;
+import com.newsapp.service.LeaningDemoService;
 
 import java.util.Locale;
 import java.util.SortedSet;
@@ -27,16 +28,28 @@ public class NewsController {
     private static final Pattern TAG = Pattern.compile("[a-z0-9-]+(/[a-z0-9-]+)*");
 
     private final ArticleSearchService articleSearchService;
+    private final LeaningDemoService leaningDemoService;
 
-    public NewsController(ArticleSearchService articleSearchService) {
+    public NewsController(ArticleSearchService articleSearchService, LeaningDemoService leaningDemoService) {
         this.articleSearchService = articleSearchService;
+        this.leaningDemoService = leaningDemoService;
+    }
+
+    /**
+     * A fixed, small demonstration of the political-leaning feature: the Guardian's latest Politics articles, each
+     * with Claude's assessment of how it leans. Independent of {@link #search} - a normal search is never classified,
+     * however it's filtered.
+     */
+    @GetMapping("/leaning-demo")
+    public SearchResult leaningDemo() {
+        return leaningDemoService.demo();
     }
 
     /**
      * A search needs a keyword, an outlet, a section or a tag (or any mix). {@code domains}, {@code sections} and
      * {@code tags} are comma-separated. Sections and tags are Guardian filters, so they narrow the search to it and
-     * can only be combined with the {@code theguardian.com} outlet (400 otherwise). The response carries a warning for
-     * each provider that failed while others succeeded.
+     * can only be combined with the {@code theguardian.com} outlet (400 otherwise). The response carries a warning
+     * for each provider that failed while the rest succeeded.
      */
     @GetMapping("/articles")
     public SearchResult search(
