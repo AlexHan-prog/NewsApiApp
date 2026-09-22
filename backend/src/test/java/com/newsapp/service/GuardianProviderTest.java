@@ -40,7 +40,7 @@ class GuardianProviderTest {
                "webPublicationDate":"2026-09-20T10:00:00Z","webTitle":"AI news",
                "webUrl":"https://www.theguardian.com/technology/2026/sep/20/ai",
                "fields":{"trailText":"A <strong>big</strong> story &amp; more","byline":"Jane Doe",
-                         "thumbnail":"https://media.guim.co.uk/x.jpg"},
+                         "thumbnail":"https://media.guim.co.uk/x.jpg","body":"<p>Full body paragraph one.</p><p>Paragraph two.</p>"},
                "tags":[]},
               {"id":"sport/2026/sep/19/x","sectionId":"sport","sectionName":"Sport",
                "webPublicationDate":"2026-09-19T08:00:00Z","webTitle":"Sport story",
@@ -85,7 +85,8 @@ class GuardianProviderTest {
         assertEquals("Jane Doe", first.author());
         assertEquals("A big story & more", first.description());
         assertEquals("https://media.guim.co.uk/x.jpg", first.urlToImage());
-        assertNull(first.content(), "article bodies are not fetched");
+        assertNull(first.content(), "the body isn't shown in the UI as an article preview");
+        assertEquals("Full body paragraph one.\nParagraph two.", first.fullText(), "but it is read for the leaning demo");
         assertEquals("Technology", first.section());
         assertEquals("The Guardian", first.provider());
         assertEquals("The Guardian", first.source().name());
@@ -95,6 +96,7 @@ class GuardianProviderTest {
         assertNull(second.description(), "blank trailText becomes null");
         assertNull(second.urlToImage());
         assertNull(second.content());
+        assertNull(second.fullText(), "no body and a blank summary leaves fullText null too");
         server.verify();
     }
 
@@ -102,8 +104,7 @@ class GuardianProviderTest {
     void sendsKeyFieldsAndFiltersEncoded() {
         GuardianProvider provider = providerWithBudget(5);
         server.expect(requestTo(containsString("api-key=" + KEY)))
-                .andExpect(requestTo(containsString("show-fields=trailText,byline,thumbnail&")))
-                .andExpect(requestTo(not(containsString("body"))))
+                .andExpect(requestTo(containsString("show-fields=trailText,byline,thumbnail,body")))
                 .andExpect(requestTo(containsString("page-size=50")))
                 .andExpect(requestTo(containsString("q=a%2Bb%20%26%20c")))
                 .andExpect(requestTo(containsString("section=business%7Ctechnology")))

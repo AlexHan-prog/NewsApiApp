@@ -2,13 +2,19 @@ package com.newsapp.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.newsapp.model.Article;
+import com.newsapp.model.Leaning;
+import com.newsapp.model.ProviderWarning;
 import com.newsapp.model.SearchCriteria;
+import com.newsapp.model.SearchResult;
 import com.newsapp.service.ArticleSearchService;
+import com.newsapp.service.LeaningDemoService;
 import com.newsapp.service.NewsProvider;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 class NewsControllerTest {
 
     private final AtomicReference<SearchCriteria> requested = new AtomicReference<>();
+    private final LeaningDemoService leaningDemoService = mock(LeaningDemoService.class);
     private MockMvc mvc;
 
     @BeforeEach
@@ -71,9 +78,42 @@ class NewsControllerTest {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "flaky is having a bad day");
             }
         };
-        mvc = MockMvcBuilders.standaloneSetup(
-                        new NewsController(new ArticleSearchService(List.of(recorder, flaky))))
+        mvc = MockMvcBuilders.standaloneSetup(new NewsController(
+                        new ArticleSearchService(List.of(recorder, flaky)), leaningDemoService))
                 .build();
+    }
+
+    @Test
+    void leaningDemoReturnsWhateverTheDemoServiceProduces() throws Exception {
+        Article classified = new Article(
+                new Article.Source("the-guardian", "The Guardian"), null, "T", null, "https://x.test/1", null, null,
+                null, "The Guardian", "Politics",
+                new Leaning(Leaning.Label.RIGHT, 0.93, "Frames the policy favourably.",
+                        List.of(new Leaning.Excerpt("a bold new plan", Leaning.Label.RIGHT, "Favourable framing"))),
+                null);
+        when(leaningDemoService.demo())
+                .thenReturn(new SearchResult(
+                        List.of(classified),
+                        List.of(new ProviderWarning("Political leaning", "1 of 5 articles could not be classified: x"))));
+
+        mvc.perform(get("/api/leaning-demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.articles[0].title").value("T"))
+                .andExpect(jsonPath("$.articles[0].leaning.label").value("RIGHT"))
+                .andExpect(jsonPath("$.articles[0].leaning.score").value(0.93))
+                .andExpect(jsonPath("$.articles[0].leaning.explanation").value("Frames the policy favourably."))
+                .andExpect(jsonPath("$.articles[0].leaning.excerpts[0].quote").value("a bold new plan"))
+                .andExpect(jsonPath("$.articles[0].fullText").doesNotExist())
+                .andExpect(jsonPath("$.warnings[0].provider").value("Political leaning"));
+    }
+
+    @Test
+    void aSearchNeverCallsTheLeaningDemoService() throws Exception {
+        mvc.perform(get("/api/articles").param("sections", "politics").param("domains", "theguardian.com"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/articles").param("keyword", "brexit")).andExpect(status().isOk());
+
+        org.mockito.Mockito.verifyNoInteractions(leaningDemoService);
     }
 
     @Test
