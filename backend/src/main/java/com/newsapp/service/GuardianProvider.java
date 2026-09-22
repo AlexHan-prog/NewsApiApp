@@ -22,8 +22,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * The Guardian Open Platform. Unlike NewsAPI it can filter by section and tag. It covers one publisher only, so it
- * can't honour a filter for any other outlet. Only the summary (trailText), byline and thumbnail are fetched, never
- * the article body.
+ * can't honour a filter for any other outlet. The full article body is fetched alongside the summary, byline and
+ * thumbnail - it never reaches the frontend (see {@link com.newsapp.model.Article#fullText()}), only the leaning demo
+ * reads it.
  */
 @Service
 public class GuardianProvider implements NewsProvider {
@@ -35,7 +36,7 @@ public class GuardianProvider implements NewsProvider {
     private static final Logger log = LoggerFactory.getLogger(GuardianProvider.class);
 
     private static final int PAGE_SIZE = 50; // the API maximum
-    private static final String SHOW_FIELDS = "trailText,byline,thumbnail";
+    private static final String SHOW_FIELDS = "trailText,byline,thumbnail,body";
     private static final String SHOW_TAGS = "contributor";
 
     private final RestClient restClient;
@@ -135,17 +136,23 @@ public class GuardianProvider implements NewsProvider {
 
     private static Article toArticle(GuardianResponse.Result result) {
         GuardianResponse.Fields fields = result.fields();
+        String description = fields == null ? null : blankToNull(HtmlText.toPlain(fields.trailText()));
+        // Some content types (picture galleries, live blogs) have no body; fall back to the summary so the leaning
+        // demo still has something to read rather than nothing.
+        String fullText = fields == null ? null : blankToNull(HtmlText.toPlain(fields.body()));
         return new Article(
                 new Article.Source("the-guardian", NAME),
                 author(result),
                 result.webTitle(),
-                fields == null ? null : blankToNull(HtmlText.toPlain(fields.trailText())),
+                description,
                 result.webUrl(),
                 fields == null ? null : blankToNull(fields.thumbnail()),
                 result.webPublicationDate(),
                 null,
                 NAME,
-                result.sectionName());
+                result.sectionName(),
+                null,
+                fullText != null ? fullText : description);
     }
 
     /** The byline if there is one, otherwise the first contributor tag. */
