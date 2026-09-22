@@ -25,9 +25,7 @@ function SectionPicker({ selected, onChange }) {
           </li>
         ))}
       </ul>
-      {selected.length > 0 && (
-        <p className="section-hint">Sections search The Guardian only, so outlets are locked to it.</p>
-      )}
+      {selected.length > 0 && <p className="section-hint">Sections search The Guardian only, so outlets are locked to it.</p>}
     </div>
   )
 }
